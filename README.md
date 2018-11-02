@@ -19,6 +19,106 @@ Versions of important packages is written in `/katalon/version` (or `$KATALON_VE
     Mozilla Firefox 62.0
     Katalon Studio 5.7.1
 
+# Building and Running Docker Images on Google Cloud
+1. Clone this CURT Katalon Docker repository
+
+	```bash
+	git clone git@github.com:curt-labs/katalon-docker-images.git
+	```
+
+1. Copy or symlink the Katalon test suite code into a Katalon repository folder named `source` at the same level as the `src` folder
+    > For example, `ln -nfs ~/repos/katalon-erp ~/repos/katalon-docker-images/katalon-circleci/source`
+1. Make your changes as needed to the `Dockerfile`
+1. Build the Docker image
+
+	```bash
+	docker build -t us.gcr.io/curt-yoda/yoda-katalon:single-suite .
+	```
+
+1. Test Locally
+
+	```bash
+	docker run us.gcr.io/curt-yoda/yoda-katalon:single-suite
+	```
+
+1. Tag the Image
+
+	```bash
+	docker tag us.gcr.io/curt-yoda/yoda-katalon:single-suite us.gcr.io/curt-yoda/yoda-katalon:latest
+	```
+
+1. Push the image to Google Cloud Container Registry
+
+	```bash
+	docker push us.gcr.io/curt-yoda/yoda-katalon:single-suite
+	```
+
+1. Redeploy the new image to the cluster and begin testing
+
+	```bash
+	kubectl set image deployment/katalon yoda-katalon=us.gcr.io/curt-yoda/yoda-katalon:latest
+	```
+
+> | <img src="https://gist.githubusercontent.com/lefte/a1f67432ad3588f5e46c28e900c842dd/raw/bca7c40cf7cfbb11aa95aefa2d8111cd376e2423/icons8-poison-windows10-100.png" height="24" valign="middle"> Warning |
+|:--|
+| Don't forget to kill the deployment when you want to stop testing, as it will keep restarting the test until told explicitly to stop |
+
+## _One-Time Setup Tasks_
+These are only needed if there isn't an existing cluster or deployment you want to use.
+
+1. Authorize pushing to the Google Cloud Container Repository
+
+	```bash
+	gcloud auth configure-docker
+	```
+
+1. _(Once) Build a Kubernetes cluster_
+
+	```bash
+	gcloud beta container --project "curt-yoda" clusters create "yoda-katalon-test" --zone "us-central1-f" --no-enable-basic-auth --cluster-version "1.9.7-gke.6" --machine-type "g1-small" --image-type "COS" --disk-type "pd-standard" --disk-size "30" --scopes "https://www.googleapis.com/auth/compute","https://www.googleapis.com/auth/devstorage.read_only","https://www.googleapis.com/auth/logging.write","https://www.googleapis.com/auth/monitoring","https://www.googleapis.com/auth/servicecontrol","https://www.googleapis.com/auth/service.management.readonly","https://www.googleapis.com/auth/trace.append" --num-nodes "1" --no-enable-cloud-logging --no-enable-cloud-monitoring --network "projects/curt-yoda/global/networks/default" --subnetwork "projects/curt-yoda/regions/us-central1/subnetworks/default" --addons HorizontalPodAutoscaling --enable-autoupgrade --enable-autorepair
+	```
+
+1. _(Once) Deploy an image_
+
+	```yaml
+	apiVersion: "extensions/v1beta1"
+	kind: "Deployment"
+	metadata:
+	  name: "katalon"
+	  namespace: "default"
+	  labels:
+	    app: "katalon"
+	spec:
+	  replicas: 3
+	  selector:
+	    matchLabels:
+	      app: "katalon"
+	  template:
+	    metadata:
+	      labels:
+	        app: "katalon"
+	    spec:
+	      containers:
+	      - name: "yoda-katalon"
+	        image: "us.gcr.io/curt-yoda/yoda-katalon:single-suite"
+	---
+	apiVersion: "autoscaling/v1"
+	kind: "HorizontalPodAutoscaler"
+	metadata:
+	  name: "katalon-hpa"
+	  namespace: "default"
+	  labels:
+	    app: "katalon"
+	spec:
+	  scaleTargetRef:
+	    kind: "Deployment"
+	    name: "katalon"
+	    apiVersion: "apps/v1beta1"
+	  minReplicas: 1
+	  maxReplicas: 5
+	  targetCPUUtilizationPercentage: 80
+	```
+
 # Katalon Studio image
 
 The container started from this image will expect following environment variables:
