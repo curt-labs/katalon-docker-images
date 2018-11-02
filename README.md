@@ -26,8 +26,8 @@ Versions of important packages is written in `/katalon/version` (or `$KATALON_VE
 	git clone git@github.com:curt-labs/katalon-docker-images.git
 	```
 
-1. Copy or symlink the Katalon test suite code into a Katalon repository folder named `source` at the same level as the `src` folder
-    > For example, `ln -nfs ~/repos/katalon-erp ~/repos/katalon-docker-images/katalon-circleci/source`
+1. Copy the Katalon test suite code into a Katalon repository folder named `source` at the same level as the `src` folder
+    > For example, `cp -R ~/repos/katalon-erp ~/repos/katalon-docker-images/katalon-circleci/source`
 1. Make your changes as needed to the `Dockerfile`
 1. Build the Docker image
 
