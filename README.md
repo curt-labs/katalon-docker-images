@@ -32,25 +32,25 @@ Versions of important packages is written in `/katalon/version` (or `$KATALON_VE
 1. Build the Docker image
 
 	```bash
-	docker build -t us.gcr.io/curt-yoda/yoda-katalon:single-suite .
+	docker build -t us.gcr.io/curt-yoda/yoda-katalon:pickFiveRandomTests .
 	```
 
 1. Test Locally
 
 	```bash
-	docker run us.gcr.io/curt-yoda/yoda-katalon:single-suite
+	docker run us.gcr.io/curt-yoda/yoda-katalon:pickFiveRandomTests
 	```
 
 1. Tag the Image
 
 	```bash
-	docker tag us.gcr.io/curt-yoda/yoda-katalon:single-suite us.gcr.io/curt-yoda/yoda-katalon:latest
+	docker tag us.gcr.io/curt-yoda/yoda-katalon:pickFiveRandomTests us.gcr.io/curt-yoda/yoda-katalon:latest
 	```
 
 1. Push the image to Google Cloud Container Registry
 
 	```bash
-	docker push us.gcr.io/curt-yoda/yoda-katalon:single-suite
+	docker push us.gcr.io/curt-yoda/yoda-katalon:latest
 	```
 
 1. Redeploy the new image to the cluster and begin testing
@@ -61,7 +61,15 @@ Versions of important packages is written in `/katalon/version` (or `$KATALON_VE
 
 > | <img src="https://gist.githubusercontent.com/lefte/a1f67432ad3588f5e46c28e900c842dd/raw/bca7c40cf7cfbb11aa95aefa2d8111cd376e2423/icons8-poison-windows10-100.png" height="24" valign="middle"> Warning |
 |:--|
-| Don't forget to kill the deployment when you want to stop testing, as it will keep restarting the test until told explicitly to stop |
+| Don't forget to kill the deployment or scale replicas down to zero when you want to stop testing, as it will keep restarting the test and creating orders until told explicitly to stop |
+
+Connect to a pod to watch the testing using:
+
+```bash
+gcloud container clusters get-credentials yoda-katalon-test --zone us-central1-f --project curt-yoda && kubectl port-forward katalon-784964c99d-88cl9 5999:5999
+```
+
+then VNC to `127.0.0.1:5999`
 
 ## _One-Time Setup Tasks_
 These are only needed if there isn't an existing cluster or deployment you want to use.
@@ -81,6 +89,7 @@ These are only needed if there isn't an existing cluster or deployment you want 
 1. _(Once) Deploy an image_
 
 	```yaml
+	---
 	apiVersion: "extensions/v1beta1"
 	kind: "Deployment"
 	metadata:
@@ -100,7 +109,7 @@ These are only needed if there isn't an existing cluster or deployment you want 
 	    spec:
 	      containers:
 	      - name: "yoda-katalon"
-	        image: "us.gcr.io/curt-yoda/yoda-katalon:single-suite"
+	        image: "us.gcr.io/curt-yoda/yoda-katalon:latest"
 	---
 	apiVersion: "autoscaling/v1"
 	kind: "HorizontalPodAutoscaler"
