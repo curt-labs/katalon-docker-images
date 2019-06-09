@@ -1,4 +1,4 @@
-# Introduction
+# Katalon Studio Docker Image
 
 This project provides convenient Docker images for Katalon Studio and other Selenium-based testing frameworks, with following requirements:
 
@@ -14,11 +14,6 @@ At this moment, the following images are available:
 
 Versions of important packages is written in `/katalon/version` (or `$KATALON_VERSION_FILE`).
 
-    cat $KATALON_VERSION_FILE
-    Google Chrome 69.0.3497.100
-    Mozilla Firefox 62.0
-    Katalon Studio 5.7.1
-
 # Building and Running Docker Images on Google Cloud
 1. Clone this CURT Katalon Docker repository
 
@@ -26,6 +21,7 @@ Versions of important packages is written in `/katalon/version` (or `$KATALON_VE
 	git clone git@github.com:curt-labs/katalon-docker-images.git
 	```
 
+1. Confirm the forked repository has not changed (`katalon-studio/docker-images`) and create a pull request if needed
 1. Copy the Katalon test suite code into a Katalon repository folder named `source` at the same level as the `src` folder
     > For example, `cp -R ~/repos/katalon-erp ~/repos/katalon-docker-images/katalon-circleci/source`
 1. Make your changes as needed to the `Dockerfile`
@@ -61,9 +57,9 @@ Versions of important packages is written in `/katalon/version` (or `$KATALON_VE
 
 > | <img src="https://gist.githubusercontent.com/lefte/a1f67432ad3588f5e46c28e900c842dd/raw/bca7c40cf7cfbb11aa95aefa2d8111cd376e2423/icons8-poison-windows10-100.png" height="24" valign="middle"> Warning |
 |:--|
-| Don't forget to kill the deployment or scale replicas down to zero when you want to stop testing, as it will keep restarting the test and creating orders until told explicitly to stop |
+| Don't forget to scale Kubernetes node resources down to zero when you want to stop testing, as it will keep restarting the test and creating orders until told explicitly to stop |
 
-Connect to a pod to watch the testing using:
+Connect to a pod to watch the tests using:
 
 ```bash
 gcloud container clusters get-credentials yoda-katalon-test --zone us-central1-f --project curt-yoda && kubectl port-forward katalon-784964c99d-88cl9 5999:5999
@@ -130,15 +126,70 @@ These are only needed if there isn't an existing cluster or deployment you want 
 
 # Katalon Studio image
 
-The container started from this image will expect following environment variables:
-* `KATALON_OPTS`: all Katalon Studio console mode arguments except `-runMode`, `-reportFolder`, and `-projectPath`. For more details as well as an easy way to generate all arguments please refer to [the documentation](https://docs.katalon.com/display/KD/Console+Mode+Execution).
+```
+docker run -t --rm katalonstudio/katalon cat /katalon/version
+```
 
-The following bind mounts should be used:
+## Sample configurations
 
-| Container's directory     | Host's directory  | Writable? |
-| ------------------------- | ----------------- | --------- |
-| /katalon/katalon/source | project directory | No - the source code will be copied to a temporary directory inside the container, therefore no write access is needed. |
-| /katalon/katalon/report | report directory  | Yes - Katalon Studio will write execution report to this directory. |
+Please visit https://github.com/katalon-studio-samples/ci-samples for a sample project with configurations for some CI tools.
+
+## Usage
+
+> The usage has been simplified since v5.8.5. Visit [here](https://github.com/katalon-studio/docker-images/tree/v5.7.1) for the old usage.
+
+### Simple use case
+
+Inside the test project directory, execute the following command:
+
+```
+docker run -t --rm -v "$(pwd)":/katalon/katalon/source katalonstudio/katalon katalon-execute.sh -browserType="Chrome" -retry=0 -statusDelay=15 -testSuitePath="Test Suites/TS_RegressionTest"
+```
+
+**`katalon-execute.sh`**
+
+This command will start Katalon Studio and other necessary components. All [Katalon Studio console mode arguments](https://docs.katalon.com/display/KD/Console+Mode+Execution) are accepted *except* `-runMode`, `-reportFolder`, and `-projectPath`.
+
+**`/katalon/katalon/source`**
+
+`katalon-execute.sh` will look for the test project inside this directory.
+
+If this bind mount is not used, `katalon-execute.sh` will look for the test project inside the current working directory (defined with `docker run`'s `-w` argument)..
+
+```
+docker run -t --rm -v "$(pwd)":/tmp/source -w /tmp/source katalonstudio/katalon katalon-execute.sh -browserType="Chrome" -retry=0 -statusDelay=15 -testSuitePath="Test Suites/TS_RegressionTest"
+```
+
+**Reports**
+
+Reports will be written to the `report` directory.
+
+> **Docker Toolbox for Windows**
+>
+> Please make sure directories have been shared and configured correctly https://docs.docker.com/toolbox/toolbox_install_windows/#optional-add-shared-directories.
+
+### Display configuration
+
+This image makes use of Xvfb with the following configurations which are configurable with `docker run`:
+
+```
+ENV DISPLAY=:99
+ENV DISPLAY_CONFIGURATION=1024x768x24
+```
+
+### Jenkins
+
+Please see [the sample `Jenkinsfile`](https://github.com/katalon-studio-samples/ci-samples/blob/master/Jenkinsfile).
+
+### CircleCI
+
+This image is compatible with CircleCI 2.0. Please see [the sample `config.yml`](https://github.com/katalon-studio-samples/ci-samples/blob/master/.circleci/config.yml).
+
+### Customize the report directory
+
+If bind mount `/katalon/katalon/report` is used, the test reports will be written to that location.
+
+### Proxy
 
 If you need to configure proxy for Katalon Studio please use following parameters:
 
@@ -153,15 +204,12 @@ If you need to configure proxy for Katalon Studio please use following parameter
 
 These proxy information will be passed to browsers executing the tests.
 
-For example, the following script will execute a project at `/home/ubuntu/katalon-test` and write reports to `/katalon/katalon/report`. Do not forget to put `--config` before the proxy configuration.
+*Do not forget to put `--config` before the proxy configuration.* Example:
 
-    #!/usr/bin/env bash
+```
+docker run -t --rm -v "$(pwd)":/katalon/katalon/source katalonstudio/katalon katalon-execute.sh -browserType="Chrome" -retry=0 -statusDelay=15 -testSuitePath="Test Suites/TS_RegressionTest" --config -proxy.option=MANUAL_CONFIG -proxy.server.type=HTTP -proxy.server.address=192.168.1.221 -proxy.server.port=8888
+```
 
-    katalon_opts='-browserType="Chrome" -retry=0 -statusDelay=15 -testSuitePath="Test Suites/TS_RegressionTest" --config -proxy.option=MANUAL_CONFIG -proxy.server.type=HTTP -proxy.server.address=192.168.1.221 -proxy.server.port=8888'
-    docker run --rm -v /home/ubuntu/katalon-test:/katalon/katalon/source:ro -v /home/ubuntu/report:/katalon/katalon/report -e KATALON_OPTS="$katalon_opts" katalonstudio/katalon
-
-Please visit https://github.com/katalon-studio/docker-images-samples for samples.
-
-# Images built by community
+## Images built by community
 
 We also host image built by community. If you want to add one, please fire a Pull Request. For example, `katalonstudio/katalon:contrib_PR_15` refers to the image built based on #15. We do not maintain or take responsiblity for any consequence made by using these images, so please use them at your own risk.
