@@ -1,4 +1,7 @@
 #!/usr/bin/env bash
 
-docker push katalonstudio/katalon:test
-docker push katalonstudio/katalon-circleci:test
+set -xe
+
+ksversion=$1
+
+docker push katalonstudio/katalon:$ksversion
